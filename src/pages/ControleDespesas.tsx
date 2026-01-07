@@ -4,13 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wallet, Search, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Wallet, Search, CheckCircle, XCircle, Loader2, Settings, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ControleDespesas() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<"success" | "error" | null>(null);
+    const [apiConfigOpen, setApiConfigOpen] = useState(false);
+    const [apiSettings, setApiSettings] = useState({
+        url: "https://api.gestaopublica.gov.br/v1",
+        token: "",
+        systemType: "generic"
+    });
 
     // Form state
     const [formData, setFormData] = useState({
@@ -24,6 +31,25 @@ export default function ControleDespesas() {
         setFormData(prev => ({ ...prev, [field]: value }));
         // Reset result when input changes
         if (result) setResult(null);
+    };
+
+    const handleSaveApiSettings = () => {
+        // Mock validation
+        if (!apiSettings.url || !apiSettings.token) {
+            toast({
+                title: "Configuração Incompleta",
+                description: "Por favor, informe a URL e o Token de acesso da API.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        // Simulate saving
+        toast({
+            title: "Conexão Estabelecida",
+            description: "Integração com o sistema de gestão pública configurada com sucesso.",
+        });
+        setApiConfigOpen(false);
     };
 
     const handleCheck = async (e: React.FormEvent) => {
@@ -71,7 +97,7 @@ export default function ControleDespesas() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         <Wallet className="h-8 w-8 text-primary" />
@@ -81,6 +107,70 @@ export default function ControleDespesas() {
                         Verifique a disponibilidade orçamentária integrando com o sistema de gestão pública.
                     </p>
                 </div>
+                <Dialog open={apiConfigOpen} onOpenChange={setApiConfigOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" className="gap-2">
+                            <Settings className="h-4 w-4" />
+                            Configurar Integração
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle>Integração com Sistema de Gestão</DialogTitle>
+                            <DialogDescription>
+                                Configure as credenciais de acesso para conectar o LiciControl à base de dados orçamentária do município.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="systemType">Sistema de Origem</Label>
+                                <Select
+                                    value={apiSettings.systemType}
+                                    onValueChange={(val) => setApiSettings({ ...apiSettings, systemType: val })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o sistema" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="generic">API Genérica (REST)</SelectItem>
+                                        <SelectItem value="govbr">Gov.br (SIAFI/SIASG)</SelectItem>
+                                        <SelectItem value="betha">Betha Sistemas</SelectItem>
+                                        <SelectItem value="ipm">IPM Sistemas</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="apiUrl">Endpoint da API</Label>
+                                <Input
+                                    id="apiUrl"
+                                    value={apiSettings.url}
+                                    onChange={(e) => setApiSettings({ ...apiSettings, url: e.target.value })}
+                                    placeholder="https://api.exemplo.gov.br/v1"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="apiToken">Token de Acesso / Chave de API</Label>
+                                <Input
+                                    id="apiToken"
+                                    type="password"
+                                    value={apiSettings.token}
+                                    onChange={(e) => setApiSettings({ ...apiSettings, token: e.target.value })}
+                                    placeholder="Cole seu token de autenticação aqui"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Esta chave será usada para autenticar as consultas de dotação.
+                                </p>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setApiConfigOpen(false)}>Cancelar</Button>
+                            <Button type="button" onClick={handleSaveApiSettings} className="gap-2">
+                                <Link className="h-4 w-4" />
+                                Salvar Conexão
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -160,8 +250,8 @@ export default function ControleDespesas() {
                 </Card>
 
                 <Card className={`shadow-elegant flex flex-col items-center justify-center p-6 border-2 border-dashed ${result === "success" ? "border-green-200 bg-green-50/50" :
-                        result === "error" ? "border-red-200 bg-red-50/50" :
-                            "border-border bg-accent/5"
+                    result === "error" ? "border-red-200 bg-red-50/50" :
+                        "border-border bg-accent/5"
                     }`}>
                     {!result && !loading && (
                         <div className="text-center space-y-4 text-muted-foreground opacity-60">

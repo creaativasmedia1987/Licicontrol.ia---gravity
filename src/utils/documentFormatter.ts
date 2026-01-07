@@ -97,3 +97,140 @@ export const formatOfficialDocument = (aiContent: string, orgData: OrgData) => {
       </style>
     `;
 };
+
+/**
+ * Remove formatação Markdown para um texto limpo
+ */
+export const cleanMarkdown = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/#{1,6}\s?/g, '') // Remove headers
+    .replace(/\*\*/g, '')      // Remove bold
+    .replace(/\*/g, '')        // Remove bullets/italic
+    .replace(/__/g, '')        // Remove bold
+    .replace(/_/g, '')         // Remove italic
+    .replace(/`{1,3}/g, '')    // Remove code blocks
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
+    .replace(/^\s*-\s/gm, '')  // Remove list dashes
+    .replace(/^\s*\d\.\s/gm, '') // Remove list numbers (optional, maybe keep?)
+    .trim();
+};
+
+import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType, Header, Footer, BorderStyle } from "docx";
+
+/**
+ * Gera um arquivo DOCX com a formatação oficial e logo
+ */
+export const generateDocx = async (content: string, orgData: OrgData): Promise<Blob> => {
+  const children = [];
+
+  // Add Logo if exists
+  if (orgData.logoUrl) {
+    try {
+      // Fetch the image to get dimensions or buffer if needed, 
+      // but docx needs base64 or buffer. 
+      // Assuming logoUrl is base64 data URL from our DB
+      const response = await fetch(orgData.logoUrl);
+      const blob = await response.blob();
+      const buffer = await blob.arrayBuffer();
+
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              data: buffer,
+              transformation: {
+                width: 100,
+                height: 100,
+              },
+            } as any),
+          ],
+        })
+      );
+    } catch (e) {
+      console.error("Error adding logo to DOCX", e);
+    }
+  }
+
+  // Add Org Name
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: orgData.orgName || "Prefeitura Municipal",
+          bold: true,
+          size: 28, // 14pt
+          allCaps: true,
+        }),
+        new TextRun({
+          text: `\nEstado de ${orgData.state || 'Brasil'}`,
+          size: 20, // 10pt
+          break: 1,
+        })
+      ],
+    })
+  );
+
+  // Add Divider
+  children.push(
+    new Paragraph({
+      border: {
+        bottom: {
+          color: "000000",
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 6,
+        },
+      },
+      spacing: { after: 400 },
+    })
+  );
+
+  // Add Content
+  // Split by newlines to create paragraphs
+  const lines = content.split('\n');
+  lines.forEach(line => {
+    if (line.trim()) {
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { after: 120 },
+          children: [
+            new TextRun({
+              text: line.trim(),
+              size: 24, // 12pt
+              font: "Times New Roman"
+            }),
+          ],
+        })
+      );
+    }
+  });
+
+  // Add Signature Lines
+  children.push(
+    new Paragraph({
+      spacing: { before: 800 },
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: "________________________________________________", size: 24 }),
+        new TextRun({ text: "\nResponsável Técnico", size: 20, break: 1 }),
+      ]
+    })
+  );
+
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {},
+        children: children,
+      },
+    ],
+  });
+
+  return await Packer.toBlob(doc);
+};

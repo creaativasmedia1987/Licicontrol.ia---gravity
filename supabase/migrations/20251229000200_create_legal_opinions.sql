@@ -1,20 +1,24 @@
-create table if not exists public.legal_opinions (
-    id uuid default gen_random_uuid() primary key,
-    title text not null,
-    content text not null,
-    compliance_score numeric not null,
-    author_id uuid references auth.users(id) not null,
-    created_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.legal_opinions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    analysis_result JSONB, -- Stores the full audit object if needed, or just text summary
+    author_name TEXT NOT NULL,
+    author_role TEXT NOT NULL,
+    compliance_score NUMERIC,
+    signature_date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    signature_token TEXT NOT NULL,
+    author_id UUID REFERENCES auth.users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Enable RLS
-alter table public.legal_opinions enable row level security;
+-- Add RLS policies
+ALTER TABLE public.legal_opinions ENABLE ROW LEVEL SECURITY;
 
--- Policies
-create policy "Users can view all legal opinions"
-    on public.legal_opinions for select
-    using (true);
+CREATE POLICY "Users can view their own opinions" 
+    ON public.legal_opinions FOR SELECT 
+    USING (auth.uid() = author_id);
 
-create policy "Users can insert their own legal opinions"
-    on public.legal_opinions for insert
-    with check (auth.uid() = author_id);
+CREATE POLICY "Users can insert their own opinions" 
+    ON public.legal_opinions FOR INSERT 
+    WITH CHECK (auth.uid() = author_id);

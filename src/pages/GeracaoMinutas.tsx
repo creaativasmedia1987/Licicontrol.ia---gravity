@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { cleanMarkdown, generateDocx, OrgData } from "@/utils/documentFormatter";
 
 interface LicitationProcess {
   id: string;
@@ -51,7 +52,7 @@ interface SavedMinuta {
 const GeracaoMinutas = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("processos");
-  
+
   const [processes, setProcesses] = useState<LicitationProcess[]>([]);
   const [selectedProcess, setSelectedProcess] = useState<string>("");
   const [templateType, setTemplateType] = useState<string>("edital");
@@ -73,10 +74,15 @@ const GeracaoMinutas = () => {
   const [savingMinuta, setSavingMinuta] = useState(false);
 
   // Saved minutas
+  // Saved minutas
   const [savedMinutas, setSavedMinutas] = useState<SavedMinuta[]>([]);
   const [loadingMinutas, setLoadingMinutas] = useState(false);
 
+  // Org Data
+  const [orgData, setOrgData] = useState<OrgData>({ orgName: "", logoUrl: null });
+
   useEffect(() => {
+    fetchOrgSettings();
     fetchProcesses();
     fetchSavedMinutas();
     const today = new Date();
@@ -84,6 +90,16 @@ const GeracaoMinutas = () => {
     setEndDate(today.toISOString().split('T')[0]);
     setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
   }, []);
+
+  const fetchOrgSettings = async () => {
+    const { data } = await supabase.from('organization_settings').select('org_name, logo_data').single();
+    if (data) {
+      setOrgData({
+        orgName: data.org_name,
+        logoUrl: data.logo_data // assuming logo_data contains the URL or base64
+      });
+    }
+  };
 
   const fetchProcesses = async () => {
     try {
@@ -152,7 +168,7 @@ const GeracaoMinutas = () => {
       setGenerating(true);
       const { data, error } = await supabase.functions.invoke("generate-minute", { body: { processId: selectedProcess, templateType } });
       if (error) throw error;
-      setGeneratedContent(data.content);
+      setGeneratedContent(cleanMarkdown(data.content));
       setActiveTab("resultado");
       toast({ title: "Minuta gerada", description: "A minuta foi gerada com sucesso." });
     } catch (error: any) {
@@ -168,7 +184,7 @@ const GeracaoMinutas = () => {
       setSelectedPncpItem(item);
       const { data, error } = await supabase.functions.invoke("generate-minute-pncp", { body: { pncpData: item, templateType: pncpTemplateType } });
       if (error) throw error;
-      setGeneratedContent(data.content);
+      setGeneratedContent(cleanMarkdown(data.content));
       setActiveTab("resultado");
       toast({ title: "Minuta gerada", description: "Minuta gerada com base no edital do PNCP." });
     } catch (error: any) {
@@ -183,7 +199,7 @@ const GeracaoMinutas = () => {
       toast({ title: "Nenhuma minuta", description: "Gere uma minuta primeiro.", variant: "destructive" });
       return;
     }
-    const defaultTitle = selectedPncpItem 
+    const defaultTitle = selectedPncpItem
       ? `${getTemplateLabel(pncpTemplateType)} - ${selectedPncpItem.objeto.substring(0, 50)}`
       : `${getTemplateLabel(templateType)} - ${processes.find(p => p.id === selectedProcess)?.object.substring(0, 50) || 'Documento'}`;
     setMinutaTitle(defaultTitle);
@@ -245,18 +261,24 @@ const GeracaoMinutas = () => {
     }
   };
 
-  const downloadMinute = () => {
+  const downloadMinute = async () => {
     if (!generatedContent) return;
     const process = processes.find((p) => p.id === selectedProcess);
-    const fileName = selectedPncpItem ? `${pncpTemplateType}_PNCP_${selectedPncpItem.id}.txt` : `${templateType}_${process?.process_number || "documento"}.txt`;
-    const blob = new Blob([generatedContent], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Download iniciado", description: "A minuta está sendo baixada." });
+    const fileName = selectedPncpItem ? `${pncpTemplateType}_PNCP_${selectedPncpItem.id}.docx` : `${templateType}_${process?.process_number || "documento"}.docx`;
+
+    try {
+      const blob = await generateDocx(generatedContent, orgData);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Download iniciado", description: "O documento Word (.docx) está sendo baixado." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erro no download", description: "Não foi possível gerar o arquivo DOCX.", variant: "destructive" });
+    }
   };
 
   const getTemplateLabel = (type: string) => {
@@ -424,6 +446,16 @@ const GeracaoMinutas = () => {
                 <CardDescription>Documento gerado automaticamente - Revise antes de utilizar</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 text-center border-b pb-4">
+                  {orgData.logoUrl && (
+                    <img
+                      src={orgData.logoUrl}
+                      alt="Logo"
+                      className="h-20 mx-auto mb-2 object-contain"
+                    />
+                  )}
+                  <h3 className="font-bold text-lg uppercase text-primary">{orgData.orgName}</h3>
+                </div>
                 <Textarea value={generatedContent} onChange={(e) => setGeneratedContent(e.target.value)} className="min-h-[600px] font-mono text-sm" />
               </CardContent>
             </Card>
@@ -496,11 +528,11 @@ const GeracaoMinutas = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="minuta-title">Título para Referência (Obrigatório)</Label>
-              <Input 
-                id="minuta-title" 
-                placeholder="Ex: Minuta de Pregão - Serviço de TI" 
-                value={minutaTitle} 
-                onChange={(e) => setMinutaTitle(e.target.value)} 
+              <Input
+                id="minuta-title"
+                placeholder="Ex: Minuta de Pregão - Serviço de TI"
+                value={minutaTitle}
+                onChange={(e) => setMinutaTitle(e.target.value)}
               />
             </div>
             <div className="bg-muted p-3 rounded-lg max-h-32 overflow-y-auto">
