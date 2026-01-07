@@ -10,15 +10,89 @@ export interface GeneratedDocument {
 
 /**
  * Obtém o modelo Gemini configurado.
- * Usa gemini-1.5-flash como padrão por ser rápido e eficiente.
+ * TENTA resolver dinamicamente, se falhar cai no flash.
  */
 function getGeminiModel() {
+    // Legacy support or sync calls can't use async resolution easily without top-level await or refactor.
+    // We will keep this for simple cases but prefer the async resolution below.
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-        throw new Error("Chave da API do Google Gemini não encontrada. Configure VITE_GEMINI_API_KEY no arquivo .env");
-    }
+    if (!apiKey) throw new Error("API Key missing");
     const genAI = new GoogleGenerativeAI(apiKey);
     return genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+}
+
+// Cache do modelo resolvido para evitar múltiplos fetches
+let cachedModelName: string | null = null;
+
+async function resolveWorkingModel(genAI: GoogleGenerativeAI): Promise<any> {
+    if (cachedModelName) {
+        return genAI.getGenerativeModel({ model: cachedModelName });
+    }
+
+    const priorityList = [
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro-latest",
+        "gemini-flash-latest",
+        "gemini-pro-latest",
+        "gemini-1.5-flash-001",
+        "gemini-1.5-pro-001",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-1.0-pro",
+        "gemini-pro"
+    ];
+
+    try {
+        const available = await checkAvailableModels();
+        // Log all available models for debugging
+        console.log("FULL Model List available:", JSON.stringify(available));
+
+        // Tenta encontrar o primeiro da lista de prioridade que existe na disponivel
+        const bestMatch = priorityList.find(candidate =>
+            available.some(avail => avail === candidate || avail.includes(candidate))
+        );
+
+        if (bestMatch) {
+            console.log(`Modelo selecionado automaticamente: ${bestMatch}`);
+            cachedModelName = bestMatch;
+            return genAI.getGenerativeModel({ model: bestMatch });
+        }
+
+        // Fallback: try to find ANYTHING that looks like a generative model, excluding embeddings if possible (though some might be chat)
+        // Usually models start with "gemini"
+        const whatever = available.find(a => a.startsWith("gemini") && !a.includes("embedding"));
+        if (whatever) {
+            console.log(`Fallback para modelo genérico: ${whatever}`);
+            cachedModelName = whatever;
+            return genAI.getGenerativeModel({ model: whatever });
+        }
+
+    } catch (e) {
+        console.error("Falha ao resolver modelo dinamicamente", e);
+    }
+
+
+    // Fallback final
+    return genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+}
+
+export async function checkAvailableModels(): Promise<string[]> {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return [];
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        const data = await response.json();
+        if (data.error) {
+            console.error("API Error listing models:", data.error);
+            return [];
+        }
+        return data.models?.map((m: any) => m.name.replace('models/', '')) || [];
+    } catch (e) {
+        console.error("Network error listing models", e);
+        return [];
+    }
 }
 
 /**
@@ -44,7 +118,10 @@ function getSystemInstruction(docType: string): string {
 }
 
 export async function generateDocumentWithGemini(docType: string, context: string): Promise<GeneratedDocument> {
-    const model = getGeminiModel();
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = await resolveWorkingModel(genAI);
+
     const systemInstruction = getSystemInstruction(docType);
 
     // SDK doesn't support 'systemInstruction' directly in getGenerativeModel for all models in the same way REST does for some versions
@@ -82,7 +159,9 @@ export async function generateDocumentWithGemini(docType: string, context: strin
 }
 
 export async function analyzeImpugnation(editalText: string, impugnationText: string): Promise<string> {
-    const model = getGeminiModel();
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = await resolveWorkingModel(genAI);
 
     const systemPrompt = "Você é um Consultor Jurídico Especialista em Licitações e Contratos Administrativos (Lei 14.133/2021). Sua tarefa é analisar uma Impugnação ao Edital. Determinar se é PROCEDENTE, IMPROCEDENTE ou PARCIALMENTE PROCEDENTE com fundamentação jurídica.";
 
@@ -116,7 +195,9 @@ export async function generateReportInsights(
     patterns: { category: string; count: number }[];
     recommendations: string[];
 }> {
-    const model = getGeminiModel();
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = await resolveWorkingModel(genAI);
 
     const prompt = `
     Atue como um Consultor Sênior de Licitações. Analise os dados e retorne APENAS um JSON válido.

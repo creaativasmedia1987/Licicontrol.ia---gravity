@@ -140,11 +140,35 @@ export default function AnaliseImpugnacao() {
 
         } catch (error: any) {
             console.error("Analysis error:", error);
-            toast({
-                title: "Erro na análise",
-                description: error.message || "Falha ao processar arquivos.",
-                variant: "destructive",
-            });
+
+            // Diagnóstico de modelos
+            try {
+                const { checkAvailableModels } = await import("@/utils/gemini");
+                const models = await checkAvailableModels();
+                console.log("Modelos disponíveis na chave:", models);
+
+                if (models.length === 0) {
+                    toast({
+                        title: "Erro de Configuração da API",
+                        description: "Sua chave de API parece válida, mas não tem acesso a nenhum modelo. Verifique se a 'Generative Language API' está ativada no Google Cloud Console.",
+                        variant: "destructive",
+                        duration: 10000,
+                    });
+                } else {
+                    toast({
+                        title: "Erro na análise",
+                        description: `Erro ao acessar o modelo. Modelos disponíveis na sua chave: ${models.join(', ')}. Tente usar um destes em gemini.ts.`,
+                        variant: "destructive",
+                        duration: 15000,
+                    });
+                }
+            } catch (diagError) {
+                toast({
+                    title: "Erro Crítico na API",
+                    description: error.message || "Falha ao processar arquivos e verificar modelos.",
+                    variant: "destructive",
+                });
+            }
         } finally {
             setIsAnalyzing(false);
         }
