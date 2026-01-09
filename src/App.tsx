@@ -17,7 +17,6 @@ import CotacoesPrecos from "./pages/CotacoesPrecos";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Configuracoes from "./pages/Configuracoes";
-import GovSign from "./pages/GovSign";
 import GovAuditor from "./pages/GovAuditor";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -127,16 +126,6 @@ const App = () => (
               <ProtectedRoute>
                 <MainLayout>
                   <CotacoesPrecos />
-                </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/govsign"
-            element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <GovSign />
                 </MainLayout>
               </ProtectedRoute>
             }

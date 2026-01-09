@@ -32,193 +32,47 @@ serve(async (req) => {
     }
 
     // System prompt for transparency analysis based on PNTP 2025 Cartilha
-    const systemPrompt = `Você é um auditor especialista em transparência pública baseado no Programa Nacional de Transparência Pública (PNTP 2025).
-Sua função é analisar portais de transparência e avaliar a conformidade com base na Cartilha PNTP 2025 e legislação brasileira:
-- Lei 12.527/2011 (Lei de Acesso à Informação - LAI)
-- Lei Complementar 131/2009 (Lei da Transparência)
-- Lei 14.133/2021 (Nova Lei de Licitações)
-- Lei 13.709/2018 (LGPD)
-- Lei 14.129/2021 (Governo Digital)
+    const systemPrompt = `Você é um auditor rigoroso da Atricon, especialista no Programa Nacional de Transparência Pública (PNTP 2025).
+Sua missão é realizar uma auditoria fidedigna do portal de transparência e emitir um selo de qualidade (Prata, Ouro ou Diamante).
 
-CRITÉRIOS DE AVALIAÇÃO (baseados na Cartilha PNTP 2025):
+REGRAS DE OURO DA AUDITORIA (CRÍTICO):
+1. SEJA RIGOROSO: Não atribua scores altos (acima de 80) se houver falhas em itens essenciais como Receita, Despesa ou Licitações.
+2. CRITÉRIOS ESSENCIAIS (Peso Máximo): 
+   - Receita Arrecadada em tempo real (D+1).
+   - Despesa detalhada (Empenho, Liquidação, Pagamento) com favorecido e CPF/CNPJ.
+   - Íntegra de Editais e Contratos.
+   - Folha de Pagamento nominal individualizada.
+   - SIC e e-SIC funcionais.
+3. PENALIDADES: Se um item essencial estiver ausente ou desatualizado, o score deve cair drasticamente. Um portal com falhas graves em Despesas jamais deve passar de 50% (Prata).
+4. QUALIDADE DOS DADOS: Verifique se os arquivos são legíveis (texto, não imagem) e se os links funcionam.
 
-1. INFORMAÇÕES PRIORITÁRIAS
-- Atualização e disponibilidade das informações
-- Ferramenta de pesquisa de conteúdo funcional
-- Informações em formato acessível
+METODOLOGIA DE PONTUAÇÃO:
+- 100-80: Diamante (Apenas se quase impecável, sem falhas essenciais).
+- 79-50: Ouro (Conformidade boa, mas com alguns pontos de atenção em transparência ativa).
+- 49-0: Prata (Nível básico de transparência ou falhas em itens essenciais).
 
-2. INFORMAÇÕES INSTITUCIONAIS
-- Estrutura organizacional
-- Competências e atribuições
-- Identificação dos responsáveis
-- Contatos e horários de atendimento
-- Atos normativos
-- FAQs e redes sociais
-
-3. RECEITA
-- Previsão e realização de receitas
-- Classificação orçamentária (categoria econômica, origem, espécie)
-- Dívida ativa
-- Atualização periódica
-
-4. DESPESA
-- Despesas empenhadas, liquidadas e pagas
-- Classificação orçamentária
-- Detalhamento de empenhos (beneficiário, bem/serviço, licitação)
-- Aquisições de bens
-- Patrocínios e publicidade
-
-5. CONVÊNIOS E TRANSFERÊNCIAS
-- Convênios recebidos e realizados
-- Transferências de recursos
-- Acordos sem transferência de recursos
-
-6. RECURSOS HUMANOS
-- Relação nominal de servidores/autoridades
-- Remuneração individualizada
-- Estagiários e terceirizados
-- Concursos públicos
-
-7. DIÁRIAS
-- Beneficiários, valores e motivos
-- Tabela de valores de diárias
-
-8. LICITAÇÕES
-- Relação de licitações (modalidade, objeto, valor)
-- Editais completos
-- Documentos de dispensa/inexigibilidade
-- Atas de Adesão SRP
-- Plano de contratações anual
-- Sancionados administrativamente
-- Regulamento interno
-
-9. CONTRATOS
-- Relação de contratos com resumo
-- Inteiro teor dos contratos e aditivos
-- Fiscais de contratos
-- Ordem cronológica de pagamentos
-
-10. OBRAS
-- Informações sobre obras (objeto, situação, datas)
-- Quantitativos e preços
-- Obras paralisadas
-
-11. PLANEJAMENTO E PRESTAÇÃO DE CONTAS
-- Balanço Geral e Relatório de Gestão
-- Decisões do Tribunal de Contas
-- RGF e RREO
-- PPA, LDO e LOA
-- Plano estratégico
-
-12. SERVIÇO DE INFORMAÇÃO AO CIDADÃO (SIC)
-- Existência e identificação do SIC
-- Contatos e horário de funcionamento
-- e-SIC funcional e simples
-- Regulamentação da LAI
-- Relatórios estatísticos
-- Informações classificadas/desclassificadas
-
-13. ACESSIBILIDADE
-- Símbolo de acessibilidade
-- Navegação (breadcrumb)
-- Alto contraste
-- Redimensionamento de texto
-- Mapa do site
-
-14. OUVIDORIA
-- Atendimento presencial
-- Canal eletrônico
-- Carta de Serviços ao Usuário
-
-15. LGPD E GOVERNO DIGITAL
-- Encarregado de dados pessoais
-- Política de Privacidade
-- Serviços digitais
-- Dados abertos (API)
-- Regulamentação Lei 14.129/2021
-- Pesquisas de satisfação
-
-16. RENÚNCIAS DE RECEITAS
-- Desonerações tributárias
-- Valores e fundamentação
-- Beneficiários identificados
-- Incentivos culturais/esportivos
-
-17. EMENDAS PARLAMENTARES
-- Identificação completa das emendas
-- Origem, tipo, valor, objeto
-- Emendas PIX
-
-18. SAÚDE (quando aplicável)
-- Plano de saúde e relatórios
-- Serviços e profissionais
-- Lista de espera
-- Medicamentos e estoques
-
-19. EDUCAÇÃO (quando aplicável)
-- Plano de educação
-- Lista de espera em creches
-
-20-26. ATIVIDADES FINALÍSTICAS (conforme o tipo de órgão)
-- Poder Legislativo: composição, leis, projetos, pautas, atas, votações
-- Poder Judiciário: composição, pautas, atas, decisões, jurisprudência
-- Tribunais de Contas: composição, processos, decisões, dados fiscalizados
-- Ministério Público: procedimentos, investigações
-- Defensoria Pública: composição, atendimento
-- Consórcios Públicos: protocolo, estatuto, contratos
-- Empresas Estatais: plano de negócios, ato de criação
-
-METODOLOGIA DE ANÁLISE:
-- Avalie cada critério aplicável ao tipo de portal analisado
-- Atribua pesos diferenciados: informações prioritárias e obrigatórias têm maior peso
-- Verifique não apenas a existência, mas a qualidade, atualização e facilidade de acesso
-- Identifique problemas de usabilidade e acessibilidade
-- Compare com boas práticas de outros portais
-
-FORMATO DA ANÁLISE:
-Forneça uma análise estruturada com:
-- Score geral (0-100) baseado no percentual de critérios atendidos
-- Número de pontos de atenção (não conformidades) encontrados
-- Resumo executivo destacando principais pontos fortes e fracos
-- Achados detalhados organizados por categoria, com:
-  * Categoria do critério
-  * Severidade (alta/média/baixa)
-  * Descrição do problema encontrado
-  * Recomendação específica para correção
-  * Referência legal quando aplicável`;
-
-    const userPrompt = `Analise o seguinte portal de transparência com base nos critérios da Cartilha PNTP 2025: ${portalUrl}
-
-INSTRUÇÕES DE ANÁLISE:
-1. Acesse e navegue pelo portal identificando a presença ou ausência de cada categoria de informação
-2. Verifique a qualidade, atualização e facilidade de acesso das informações
-3. Identifique problemas de acessibilidade e usabilidade
-4. Compare com as boas práticas estabelecidas na legislação e na Cartilha PNTP 2025
-
-IMPORTANTE: Use o Google Search para:
-- Verificar informações públicas sobre o órgão/município
-- Comparar com boas práticas de outros portais similares
-- Validar se há notícias ou denúncias sobre problemas de transparência
-
-Retorne a análise OBRIGATORIAMENTE no seguinte formato JSON:
+FORMATO DA ANÁLISE (JSON):
 {
-  "score": número entre 0 e 100 (baseado no percentual de critérios atendidos),
-  "findings_count": número total de não conformidades ou pontos de atenção identificados,
-  "summary": "resumo executivo com até 500 caracteres destacando principais pontos fortes e fracos do portal",
+  "score": número (0-100),
+  "findings_count": número,
+  "summary": "Resumo executivo destacando por que o portal recebeu esta nota e o que impede um selo superior.",
   "detailed_findings": [
     {
-      "category": "nome da categoria conforme PNTP 2025 (ex: 'Informações Institucionais', 'Receita', 'Despesa', etc.)",
-      "severity": "alta|média|baixa",
-      "description": "descrição clara e objetiva do problema ou não conformidade encontrada",
-      "recommendation": "recomendação específica de como corrigir o problema, incluindo referência legal quando aplicável"
+      "category": "Categoria (ex: Despesa, Receita)",
+      "severity": "ALTA|MÉDIA|BAIXA",
+      "description": "Detalhe o problema e por que ele fere a regra da Atricon.",
+      "recommendation": "O que o portal deve fazer para corrigir."
     }
   ]
-}
+}`;
 
-CRITÉRIOS DE SEVERIDADE:
-- ALTA: Informação obrigatória por lei completamente ausente ou desatualizada há mais de 6 meses
-- MÉDIA: Informação presente mas com problemas de qualidade, detalhamento ou atualização
-- BAIXA: Questões de usabilidade, acessibilidade ou boas práticas que não afetam informações obrigatórias`;
+    const userPrompt = `Realize uma auditoria completa no portal: ${portalUrl}
+Use o Google Search para validar:
+1. A existência de seções obrigatórias (Receitas, Despesas, Licitações, RH).
+2. A data da última atualização.
+3. A funcionalidade do e-SIC.
+
+Se houver muitos arquivos corrompidos, links quebrados ou falta de transparência em áreas críticas (como o caso de Carira mencionado anteriormente), reduza a nota severamente para refletir a realidade. Queremos uma nota fidedigna aos padrões Atricon.`;
 
     // Call Lovable AI with Google Search grounding
     console.log("Calling AI for transparency analysis...");
@@ -229,6 +83,7 @@ CRITÉRIOS DE SEVERIDADE:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        // model: "google/gemini-2.0-flash-exp",
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
@@ -241,14 +96,14 @@ CRITÉRIOS DE SEVERIDADE:
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errorText);
-      
+
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       if (aiResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: "Payment required. Please add credits to your Lovable AI workspace." }),
@@ -266,7 +121,7 @@ CRITÉRIOS DE SEVERIDADE:
     console.log("AI analysis completed successfully");
 
     const aiContent = aiData.choices?.[0]?.message?.content || "";
-    
+
     // Parse the AI response
     let analysisResult;
     try {
@@ -277,15 +132,15 @@ CRITÉRIOS DE SEVERIDADE:
       } else {
         // Fallback if no JSON found
         analysisResult = {
-          score: 85,
-          findings_count: 3,
-          summary: aiContent.substring(0, 500),
+          score: 45,
+          findings_count: 5,
+          summary: "Falha ao processar análise detalhada. Score conservador atribuído.",
           detailed_findings: [
             {
-              category: "Análise Geral",
-              severity: "média",
-              description: aiContent,
-              recommendation: "Consulte a análise completa para recomendações detalhadas"
+              category: "Análise Técnica",
+              severity: "alta",
+              description: "O sistema não conseguiu processar o formato de resposta da auditoria.",
+              recommendation: "Tente realizar a análise novamente."
             }
           ]
         };
@@ -293,15 +148,15 @@ CRITÉRIOS DE SEVERIDADE:
     } catch (e) {
       console.error("Error parsing AI response:", e);
       analysisResult = {
-        score: 85,
-        findings_count: 2,
-        summary: "Análise realizada com sucesso. Portal apresenta conformidade parcial com a legislação.",
+        score: 45,
+        findings_count: 3,
+        summary: "Erro no processamento da análise. Score reduzido para segurança.",
         detailed_findings: [
           {
-            category: "Análise Automatizada",
+            category: "Sistema",
             severity: "média",
-            description: aiContent.substring(0, 300),
-            recommendation: "Revisar pontos identificados pela análise"
+            description: "Houve um erro no processamento dos dados da IA.",
+            recommendation: "Solicite nova análise."
           }
         ]
       };
@@ -320,7 +175,7 @@ CRITÉRIOS DE SEVERIDADE:
     );
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
+
     if (userError || !user) {
       console.error("Authentication error:", userError);
       return new Response(

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Save, Upload, Loader2 } from "lucide-react";
+
+import { Tables } from "@/integrations/supabase/types";
+
+type OrgSettings = Tables<'organization_settings'>;
 
 export default function Configuracoes() {
     const [loading, setLoading] = useState(true);
@@ -15,25 +19,20 @@ export default function Configuracoes() {
     const [logoData, setLogoData] = useState<string | null>(null);
     const { toast } = useToast();
 
-    useEffect(() => {
-        loadSettings();
-    }, []);
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             const { data, error } = await supabase
-                .from('organization_settings' as any)
+                .from('organization_settings')
                 .select('*')
                 .limit(1)
                 .single();
 
             if (error && error.code !== 'PGRST116') throw error;
 
-            const config = data as any;
-            if (config) {
-                setOrgName(config.org_name || "");
-                setOrgState(config.state || "");
-                setLogoData(config.logo_data || null);
+            if (data) {
+                setOrgName(data.org_name || "");
+                setOrgState(data.state || "");
+                setLogoData(data.logo_data || null);
             }
         } catch (error) {
             console.error("Error loading settings:", error);
@@ -45,7 +44,11 @@ export default function Configuracoes() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -72,7 +75,7 @@ export default function Configuracoes() {
         try {
             // Check if row exists
             const { data: existing } = await supabase
-                .from('organization_settings' as any)
+                .from('organization_settings')
                 .select('id')
                 .limit(1)
                 .maybeSingle();
@@ -85,16 +88,15 @@ export default function Configuracoes() {
             };
 
             let error;
-            const existingRecord = existing as any;
-            if (existingRecord) {
+            if (existing) {
                 const { error: updateError } = await supabase
-                    .from('organization_settings' as any)
+                    .from('organization_settings')
                     .update(payload)
-                    .eq('id', existingRecord.id);
+                    .eq('id', existing.id);
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase
-                    .from('organization_settings' as any)
+                    .from('organization_settings')
                     .insert(payload);
                 error = insertError;
             }
@@ -112,11 +114,12 @@ export default function Configuracoes() {
             // Ideally we would update a global context. Let's trigger a custom event or just let it be.
             window.dispatchEvent(new Event('org-settings-updated'));
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
             console.error("Error saving settings:", error);
             toast({
                 title: "Erro ao salvar",
-                description: error.message || "Falha ao salvar configurações.",
+                description: message || "Falha ao salvar configurações.",
                 variant: "destructive",
             });
         } finally {

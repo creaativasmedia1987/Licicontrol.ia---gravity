@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, CheckCircle, Info, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info, XCircle, Award } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface Finding {
@@ -21,7 +21,8 @@ interface TransparencyReportViewerProps {
 }
 
 const getSeverityConfig = (severity: string) => {
-  switch (severity) {
+  const s = (severity || "").toUpperCase();
+  switch (s) {
     case "ALTA":
       return {
         color: "bg-destructive text-destructive-foreground",
@@ -29,6 +30,7 @@ const getSeverityConfig = (severity: string) => {
         label: "Alta Prioridade",
       };
     case "MÉDIA":
+    case "MEDIA":
       return {
         color: "bg-warning text-warning-foreground",
         icon: AlertTriangle,
@@ -63,16 +65,21 @@ export default function TransparencyReportViewer({
   detailedFindings,
   analysisDate,
 }: TransparencyReportViewerProps) {
-  // Parse findings if it's a string
+  // Parse findings if it's a string or complex object
   let findings: Finding[] = [];
-  if (typeof detailedFindings === "string") {
-    try {
+  try {
+    if (typeof detailedFindings === "string") {
       findings = JSON.parse(detailedFindings);
-    } catch {
-      findings = [];
+    } else if (detailedFindings && typeof detailedFindings === "object") {
+      if (Array.isArray(detailedFindings)) {
+        findings = detailedFindings;
+      } else if (detailedFindings.detailed_findings && Array.isArray(detailedFindings.detailed_findings)) {
+        findings = detailedFindings.detailed_findings;
+      }
     }
-  } else if (Array.isArray(detailedFindings)) {
-    findings = detailedFindings;
+  } catch (e) {
+    console.error("Error parsing detailedFindings:", e);
+    findings = [];
   }
 
   // Group findings by category
@@ -116,24 +123,37 @@ export default function TransparencyReportViewer({
 
       {/* Score Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-primary/20">
+        <Card className="border-primary/20 bg-gradient-to-br from-white to-accent/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground font-normal">
-              Pontuação Geral
+            <CardTitle className="text-sm text-muted-foreground font-normal flex items-center justify-between">
+              Pontuação Geral e Selo Atricon
+              {score >= 80 ? (
+                <Badge className="bg-blue-600 text-white border-blue-200 shadow-blue-500/50 flex gap-1">
+                  <Award className="h-3 w-3" /> Diamante
+                </Badge>
+              ) : score >= 50 ? (
+                <Badge className="bg-yellow-500 text-white border-yellow-200 shadow-yellow-500/50 flex gap-1">
+                  <Award className="h-3 w-3" /> Ouro
+                </Badge>
+              ) : (
+                <Badge className="bg-slate-400 text-white border-slate-200 shadow-slate-500/50 flex gap-1">
+                  <Award className="h-3 w-3" /> Prata
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className={`text-5xl font-bold ${getScoreColor(score)}`}>
-              {score}
-              <span className="text-2xl">/100</span>
+            <div className="flex items-end gap-4">
+              <div className={`text-5xl font-bold ${getScoreColor(score)}`}>
+                {score}
+                <span className="text-2xl">/100</span>
+              </div>
+              <div className="flex-1 pb-2">
+                <Progress value={score} className="h-2" />
+              </div>
             </div>
-            <Progress value={score} className="h-2" />
-            <p className="text-xs text-muted-foreground">
-              {score >= 80
-                ? "Portal em conformidade com a maioria dos critérios"
-                : score >= 60
-                ? "Portal necessita de melhorias em alguns aspectos"
-                : "Portal requer atenção urgente em múltiplos critérios"}
+            <p className="text-xs text-muted-foreground italic">
+              * Critérios baseados na Cartilha PNTP 2025 da Atricon.
             </p>
           </CardContent>
         </Card>
@@ -152,8 +172,8 @@ export default function TransparencyReportViewer({
               {findingsCount === 0
                 ? "Nenhum ponto de atenção identificado"
                 : findingsCount === 1
-                ? "Ponto identificado requer análise"
-                : "Pontos identificados requerem análise"}
+                  ? "Ponto identificado requer análise"
+                  : "Pontos identificados requerem análise"}
             </p>
           </CardContent>
         </Card>

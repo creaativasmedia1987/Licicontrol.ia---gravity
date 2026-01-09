@@ -23,6 +23,20 @@ import {
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { User } from '@supabase/supabase-js';
+import { Tables } from '@/integrations/supabase/types';
+
+type FileRow = Tables<'files'>;
+
+interface Document {
+  id: string;
+  title: string;
+  category: string;
+  createdAt: string;
+  filePath: string;
+  fileSize: number;
+  complianceScore: number;
+}
 
 // Categories definition
 const categories = [
@@ -37,8 +51,8 @@ const categories = [
 ];
 
 export default function Arquivos() {
-  const [user, setUser] = useState<any>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -63,45 +77,44 @@ export default function Arquivos() {
 
   // Data Fetching Effect
   useEffect(() => {
-    if (!user) return;
-    loadFiles();
+    const loadFiles = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("files")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-    // Optional: Realtime subscription could go here
-  }, [user]);
+        if (error) throw error;
 
-  const loadFiles = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("files")
-        .select("*")
-        .order("created_at", { ascending: false });
+        const mappedDocs: Document[] = (data || []).map(file => ({
+          id: file.id,
+          title: file.file_name,
+          category: file.folder_name,
+          createdAt: file.created_at || new Date().toISOString(),
+          filePath: file.file_path,
+          fileSize: file.file_size,
+          complianceScore: 100
+        }));
 
-      if (error) throw error;
+        setDocuments(mappedDocs);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Error loading files:", error);
+        toast({
+          title: "Erro ao carregar arquivos",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      // Map Supabase files to UI format
-      const mappedDocs = (data || []).map(file => ({
-        id: file.id,
-        title: file.file_name,
-        category: file.folder_name, // Mapping folder_name to category
-        createdAt: file.created_at,
-        filePath: file.file_path,
-        fileSize: file.file_size,
-        complianceScore: 100 // Dummy score for now as backend doesn't have it yet
-      }));
-
-      setDocuments(mappedDocs);
-    } catch (error: any) {
-      console.error("Error loading files:", error);
-      toast({
-        title: "Erro ao carregar arquivos",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    if (user) {
+      loadFiles();
     }
-  };
+  }, [user, toast]);
 
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = (doc.title?.toLowerCase() || '').includes(searchTerm.toLowerCase());
@@ -146,12 +159,29 @@ export default function Arquivos() {
         description: `${file.name} salvo em ${targetCategory}.`,
       });
 
-      loadFiles();
-    } catch (error: any) {
+      // Reload files after successful upload
+      const { data } = await supabase
+        .from("files")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        setDocuments(data.map(f => ({
+          id: f.id,
+          title: f.file_name,
+          category: f.folder_name,
+          createdAt: f.created_at || new Date().toISOString(),
+          filePath: f.file_path,
+          fileSize: f.file_size,
+          complianceScore: 100
+        })));
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Error uploading:", error);
       toast({
         title: "Erro no upload",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -182,10 +212,12 @@ export default function Arquivos() {
         title: "Documento excluído",
         description: "Arquivo removido com sucesso.",
       });
-      loadFiles();
-    } catch (error: any) {
+
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Erro ao deletar documento:", error);
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro", description: message, variant: "destructive" });
     }
   };
 
@@ -205,9 +237,10 @@ export default function Arquivos() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Error downloading:", error);
-      toast({ title: "Erro", description: "Falha no download.", variant: "destructive" });
+      toast({ title: "Erro", description: "Falha no download: " + message, variant: "destructive" });
     }
   };
 
@@ -230,8 +263,8 @@ export default function Arquivos() {
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                 }`}
             >
               <div className="flex items-center gap-3">
@@ -361,7 +394,12 @@ export default function Arquivos() {
   );
 }
 
-function DocumentCard({ doc, viewMode, onDelete, onDownload }: any) {
+function DocumentCard({ doc, viewMode, onDelete, onDownload }: {
+  doc: Document;
+  viewMode: 'list' | 'grid';
+  onDelete: () => void;
+  onDownload: () => void;
+}) {
   const score = doc.complianceScore || 0;
   // High risk logic placeholder - defaulting to safe for now as we don't calculate it here yet
   const isHighRisk = false;

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import FloatingAssistant from "../FloatingAssistant";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -69,6 +70,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <div className="container mx-auto p-4 md:p-8">
           {children}
         </div>
+        <FloatingAssistant />
       </main>
     </div>
   );

@@ -1,16 +1,13 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileSearch, TrendingUp, AlertTriangle, CheckCircle, Loader2, Award, Info, Calculator, CheckSquare, ShieldAlert } from "lucide-react";
+import { FileSearch, TrendingUp, AlertTriangle, CheckCircle, Loader2, Award } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -61,81 +58,6 @@ interface TransparencyReport {
   status: string;
 }
 
-// --- PNTP Simulator Data ---
-
-interface CriteriaItem {
-  id: string;
-  label: string;
-  weight: 1 | 2 | 3; // 1=Rec, 2=Obri, 3=Essencial
-  isEssential: boolean;
-}
-
-interface CriteriaSection {
-  id: string;
-  title: string;
-  items: CriteriaItem[];
-}
-
-const pntpCriteria: CriteriaSection[] = [
-  {
-    id: "receitas",
-    title: "Receitas (Essencial)",
-    items: [
-      { id: "r1", label: "Receita Prevista e Arrecadada (atualizada em tempo real ou D+1)", weight: 3, isEssential: true },
-      { id: "r2", label: "Classificação da Receita (Natureza, Fonte)", weight: 3, isEssential: true },
-      { id: "r3", label: "Lançamentos e Recebimentos Extras Orçamentários", weight: 3, isEssential: true },
-    ]
-  },
-  {
-    id: "despesas",
-    title: "Despesas (Essencial)",
-    items: [
-      { id: "d1", label: "Despesa Empenhada, Liquidada e Paga (detalhada)", weight: 3, isEssential: true },
-      { id: "d2", label: "Nome do Credor e CPF/CNPJ (respeitando LGPD)", weight: 3, isEssential: true },
-      { id: "d3", label: "Número do Processo e Bem/Serviço Adquirido", weight: 3, isEssential: true },
-      { id: "d4", label: "Ordem Cronológica de Pagamentos", weight: 2, isEssential: false },
-    ]
-  },
-  {
-    id: "licitacoes",
-    title: "Licitações e Contratos",
-    items: [
-      { id: "l1", label: "Íntegra dos Editais e Anexos", weight: 3, isEssential: true },
-      { id: "l2", label: "Resultados e Atas das Sessões", weight: 3, isEssential: true },
-      { id: "l3", label: "Contratos na Íntegra e Aditivos", weight: 3, isEssential: true },
-      { id: "l4", label: "Estudos Técnicos Preliminares (ETP)", weight: 2, isEssential: false },
-      { id: "l5", label: "Mapa de Preços", weight: 2, isEssential: false },
-    ]
-  },
-  {
-    id: "gestao_fiscal",
-    title: "Gestão Fiscal (LRF)",
-    items: [
-      { id: "g1", label: "RREO (Relatório Resumido de Execução Orçamentária) - Último Bimestre", weight: 3, isEssential: true },
-      { id: "g2", label: "RGF (Relatório de Gestão Fiscal) - Último Quadrimestre", weight: 3, isEssential: true },
-      { id: "g3", label: "Parecer Prévio do Tribunal de Contas", weight: 2, isEssential: false },
-    ]
-  },
-  {
-    id: "pessoal",
-    title: "Pessoal e Administrativo",
-    items: [
-      { id: "p1", label: "Folha de Pagamento (Nome, Cargo, Lotação, Vencimentos)", weight: 3, isEssential: true },
-      { id: "p2", label: "Tabela de Diárias e Passagens", weight: 2, isEssential: false },
-      { id: "p3", label: "Estrutura Organizacional e Competências", weight: 1, isEssential: false },
-    ]
-  },
-  {
-    id: "acessibilidade",
-    title: "Acessibilidade e Usabilidade",
-    items: [
-      { id: "a1", label: "Ferramenta de Busca", weight: 2, isEssential: false },
-      { id: "a2", label: "Acessibilidade (VLibras, Alto Contraste)", weight: 2, isEssential: false },
-      { id: "a3", label: "Fale Conosco / e-SIC físico e eletrônico", weight: 3, isEssential: true },
-    ]
-  }
-];
-
 export default function Transparencia() {
   const [portalUrl, setPortalUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -144,59 +66,6 @@ export default function Transparencia() {
   const [selectedReport, setSelectedReport] = useState<TransparencyReport | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
-
-  // --- Simulator State ---
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
-
-  // Initialize checks
-  useEffect(() => {
-    // Optional: could load from local storage
-  }, []);
-
-  const handleCheck = (id: string, checked: boolean) => {
-    setCheckedItems(prev => ({ ...prev, [id]: checked }));
-  };
-
-  const calculateScore = () => {
-    let earnedPoints = 0;
-    let totalPoints = 0;
-    let essentialMissed = false;
-
-    pntpCriteria.forEach(section => {
-      section.items.forEach(item => {
-        totalPoints += item.weight;
-        if (checkedItems[item.id]) {
-          earnedPoints += item.weight;
-        } else if (item.isEssential) {
-          essentialMissed = true;
-        }
-      });
-    });
-
-    const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
-
-    let level = "Inicial";
-    let badgeColor = "bg-gray-500";
-
-    if (essentialMissed) {
-      // If essential missed, usually cap logic applies, but let's stick to percentage tiers but maybe warn
-      // Based on PNTP, essential 100% is mandatory for seals.
-      if (percentage >= 75) level = "Elevado (Pendente Essenciais)"; // Custom status
-      else if (percentage >= 50) level = "Intermediário (Pendente Essenciais)";
-      else level = "Inicial";
-    } else {
-      if (percentage >= 95) { level = "Diamante"; badgeColor = "bg-blue-600 border-blue-200 shadow-blue-500/50"; }
-      else if (percentage >= 85) { level = "Ouro"; badgeColor = "bg-yellow-500 border-yellow-200 shadow-yellow-500/50"; }
-      else if (percentage >= 75) { level = "Prata"; badgeColor = "bg-slate-400 border-slate-200 shadow-slate-500/50"; }
-      else if (percentage >= 50) { level = "Intermediário"; badgeColor = "bg-orange-500"; }
-      else if (percentage >= 30) { level = "Básico"; badgeColor = "bg-orange-700"; }
-      else { level = "Inicial"; badgeColor = "bg-red-600"; }
-    }
-
-    return { percentage, earnedPoints, totalPoints, level, badgeColor, essentialMissed };
-  };
-
-  const scoreData = calculateScore();
 
   // Load reports from database
   useEffect(() => {
@@ -276,6 +145,12 @@ export default function Transparencia() {
     }
   };
 
+  const getSealInfo = (score: number) => {
+    if (score >= 80) return { label: "Diamante", color: "bg-blue-600 border-blue-200 shadow-blue-500/50" };
+    if (score >= 50) return { label: "Ouro", color: "bg-yellow-500 border-yellow-200 shadow-yellow-500/50" };
+    return { label: "Prata", color: "bg-slate-400 border-slate-200 shadow-slate-500/50" };
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -299,11 +174,6 @@ export default function Transparencia() {
       </div>
 
       <Tabs defaultValue="auto" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="auto">Análise Automática (IA)</TabsTrigger>
-          <TabsTrigger value="manual">Simulador PNTP (Atricon)</TabsTrigger>
-        </TabsList>
-
         <TabsContent value="auto" className="space-y-8">
           {/* Compliance Overview */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -428,8 +298,16 @@ export default function Transparencia() {
                         )}
                       </div>
                       <div className="flex items-center gap-4 ml-4">
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end gap-1">
                           <p className="text-sm font-bold">Score: {report.score}%</p>
+                          {(() => {
+                            const seal = getSealInfo(report.score);
+                            return (
+                              <Badge className={`${seal.color} text-[10px] h-5 py-0 px-2 text-white`}>
+                                <Award className="h-3 w-3 mr-1" /> {seal.label}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <Button
                           variant="outline"
@@ -448,117 +326,6 @@ export default function Transparencia() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="manual" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Simulator Column - Checklist */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-indigo-600" />
-                    Checklist de Critérios
-                  </CardTitle>
-                  <CardDescription>
-                    Marque os itens presentes no portal para simular a nota.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Accordion type="multiple" defaultValue={["receitas", "despesas"]} className="w-full">
-                    {pntpCriteria.map((section) => (
-                      <AccordionItem key={section.id} value={section.id}>
-                        <AccordionTrigger className="text-lg font-semibold text-gray-700">
-                          {section.title}
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                          {section.items.map((item) => (
-                            <div key={item.id} className="flex items-start space-x-3 p-3 rounded hover:bg-gray-50 transition-colors">
-                              <Switch
-                                id={item.id}
-                                checked={checkedItems[item.id] || false}
-                                onCheckedChange={(checked) => handleCheck(item.id, checked)}
-                              />
-                              <div className="grid gap-1.5 leading-none">
-                                <Label
-                                  htmlFor={item.id}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                >
-                                  {item.label}
-                                </Label>
-                                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                                  {item.isEssential && (
-                                    <Badge variant="destructive" className="text-[10px] h-4 px-1">Essencial</Badge>
-                                  )}
-                                  <Badge variant="outline" className="text-[10px] h-4 px-1">Peso {item.weight}</Badge>
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Score Column - Sticky */}
-            <div className="space-y-6">
-              <Card className="shadow-elegant sticky top-6 border-indigo-100 bg-gradient-to-br from-white to-gray-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-indigo-800">
-                    <Calculator className="h-5 w-5" />
-                    Resultado Simulado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-center py-6">
-                    <div className={`inline-flex items-center justify-center p-4 rounded-full mb-4 shadow-lg ${scoreData.badgeColor} text-white transition-all duration-500`}>
-                      <Award className="h-10 w-10" />
-                    </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                      {scoreData.level}
-                    </h2>
-                    {scoreData.essentialMissed && (
-                      <p className="text-xs text-red-500 font-medium mt-1 flex items-center justify-center gap-1">
-                        <ShieldAlert className="h-3 w-3" />
-                        Critérios Essenciais Pendentes
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Índice Geral</span>
-                      <span className="font-bold">{scoreData.percentage.toFixed(1)}%</span>
-                    </div>
-                    <Progress value={scoreData.percentage} className="h-3" />
-                  </div>
-
-                  <div className="space-y-2 pt-4 border-t">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Pontos Obtidos</span>
-                      <span>{scoreData.earnedPoints}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Pontos Totais Possíveis</span>
-                      <span>{scoreData.totalPoints}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800 leading-relaxed border border-blue-100">
-                    <div className="flex gap-2 items-start">
-                      <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                      <p>
-                        Para conquistar os selos Diamante, Ouro ou Prata, é obrigatório atender a 100% dos critérios essenciais, independente da pontuação geral.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </TabsContent>
       </Tabs>
 

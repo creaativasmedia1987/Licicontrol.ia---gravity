@@ -5,32 +5,26 @@ import {
     FileText,
     CheckCircle2,
     QrCode,
-    LayoutDashboard,
-    Settings,
-    Users,
     Lock,
     ExternalLink,
     Award,
     AlertTriangle,
-    LogOut,
     ChevronRight,
     Fingerprint
 } from 'lucide-react';
 import { toast } from "sonner";
+import { User } from '@supabase/supabase-js';
+import { generateHash } from '@/utils/crypto';
+import { Tables } from '@/integrations/supabase/types';
 
-async function generateHash(text: string) {
-    const msgUint8 = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+type DocumentRow = Tables<'documents'>;
 
 export default function GovSign() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [isGovAuthenticated, setIsGovAuthenticated] = useState(false);
     const [govLevel, setGovLevel] = useState<string | null>(null); // 'bronze', 'prata', 'ouro'
     const [loading, setLoading] = useState(false);
-    const [docs, setDocs] = useState<any[]>([]);
+    const [docs, setDocs] = useState<DocumentRow[]>([]);
     const [currentDoc, setCurrentDoc] = useState({ title: '', content: '' });
 
     // Authentication
@@ -52,24 +46,24 @@ export default function GovSign() {
     useEffect(() => {
         if (!user || !isGovAuthenticated) return;
 
-        // Initial fetch
         const fetchDocs = async () => {
-            const { data, error } = await (supabase as any)
+            const { data, error } = await supabase
                 .from('documents')
                 .select('*')
                 .order('created_at', { ascending: false });
 
+            if (error) {
+                console.error("Error fetching docs:", error);
+                return;
+            }
             if (data) setDocs(data);
         };
         fetchDocs();
 
-        // Subscribe to changes
         const channel = supabase
             .channel('public:documents')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    setDocs(prev => [payload.new, ...prev]);
-                }
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'documents' }, (payload) => {
+                setDocs(prev => [payload.new as DocumentRow, ...prev]);
             })
             .subscribe();
 
@@ -103,7 +97,6 @@ export default function GovSign() {
         setLoading(true);
         try {
             const timestamp = Date.now();
-            // Use real HASH generation instead of random random
             const hash = await generateHash(currentDoc.content + timestamp);
 
             const docData = {
@@ -114,18 +107,19 @@ export default function GovSign() {
                 created_at: timestamp,
                 integrity_hash: hash,
                 status: 'assinado_gov_br',
-                gov_level: govLevel // New field
+                gov_level: govLevel
             };
 
-            const { error } = await (supabase as any).from('documents').insert(docData);
+            const { error } = await supabase.from('documents').insert(docData);
 
             if (error) throw error;
 
             toast.success("Documento assinado com sucesso!");
             setCurrentDoc({ title: '', content: '' });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
             console.error('Error signing document:', error);
-            toast.error("Erro ao assinar documento: " + error.message);
+            toast.error("Erro ao assinar documento: " + message);
         } finally {
             setLoading(false);
         }

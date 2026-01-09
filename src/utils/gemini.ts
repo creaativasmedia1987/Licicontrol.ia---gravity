@@ -24,7 +24,14 @@ function getGeminiModel() {
 // Cache do modelo resolvido para evitar múltiplos fetches
 let cachedModelName: string | null = null;
 
-async function resolveWorkingModel(genAI: GoogleGenerativeAI): Promise<any> {
+import { GenerativeModel } from "@google/generative-ai";
+
+interface ModelApiResponse {
+    models?: { name: string }[];
+    error?: any;
+}
+
+async function resolveWorkingModel(genAI: GoogleGenerativeAI): Promise<GenerativeModel> {
     if (cachedModelName) {
         return genAI.getGenerativeModel({ model: cachedModelName });
     }
@@ -83,12 +90,12 @@ export async function checkAvailableModels(): Promise<string[]> {
     if (!apiKey) return [];
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        const data = await response.json();
+        const data = await response.json() as ModelApiResponse;
         if (data.error) {
             console.error("API Error listing models:", data.error);
             return [];
         }
-        return data.models?.map((m: any) => m.name.replace('models/', '')) || [];
+        return data.models?.map(m => m.name.replace('models/', '')) || [];
     } catch (e) {
         console.error("Network error listing models", e);
         return [];

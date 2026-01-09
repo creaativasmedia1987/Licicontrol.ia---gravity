@@ -24,7 +24,6 @@ const navigation = [
     title: "Controle Interno",
     items: [
       { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-      { name: "GovSign", icon: ShieldCheck, path: "/govsign" },
       { name: "Matriz de Risco", icon: AlertTriangle, path: "/matriz-risco" },
       { name: "Análise de Transparência", icon: FileSearch, path: "/transparencia" },
       { name: "Análise de Impugnação", icon: Gavel, path: "/analise-impugnacao" },

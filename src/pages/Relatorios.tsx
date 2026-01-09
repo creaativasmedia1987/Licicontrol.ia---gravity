@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BarChart3, Download, FileText, TrendingUp, Gavel, Sparkles, Clock, Calendar, CheckCircle, Lightbulb, AlertOctagon, BrainCircuit } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -12,22 +12,10 @@ import { Document, Paragraph, TextRun, Packer } from "docx";
 import { useToast } from "@/hooks/use-toast";
 import { generateReportInsights } from "@/utils/gemini";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { Tables } from "@/integrations/supabase/types";
 
-interface GeneratedDoc {
-  id: string;
-  title: string;
-  type: string;
-  content: string;
-  created_at: string;
-}
-
-interface Impugnation {
-  id: string;
-  edital_text: string;
-  impugnation_text: string;
-  analysis_result: string;
-  created_at: string;
-}
+type GeneratedDoc = Tables<'documentos_gerados'>;
+type Impugnation = Tables<'impugnacoes'>;
 
 interface InsightsData {
   summary: string;
@@ -43,6 +31,21 @@ export default function Relatorios() {
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const { toast } = useToast();
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: docs } = await supabase.from("documentos_gerados").select("*").order("created_at", { ascending: false }).limit(50);
+      const { data: imps } = await supabase.from("impugnacoes").select("*").order("created_at", { ascending: false }).limit(50);
+
+      setGeneratedDocs((docs as GeneratedDoc[]) || []);
+      setImpugnations((imps as Impugnation[]) || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
 
@@ -54,22 +57,7 @@ export default function Relatorios() {
     return () => {
       channels.forEach(ch => supabase.removeChannel(ch));
     };
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const { data: docs } = await supabase.from("documentos_gerados").select("*").order("created_at", { ascending: false }).limit(50);
-      const { data: imps } = await supabase.from("impugnacoes").select("*").order("created_at", { ascending: false }).limit(50);
-
-      setGeneratedDocs(docs || []);
-      setImpugnations(imps || []);
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchData]);
 
   const handleGenerateInsights = async () => {
     setAnalyzing(true);
