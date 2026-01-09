@@ -10,7 +10,7 @@ export interface GeneratedDocument {
 
 /**
  * Obtém o modelo Gemini configurado.
- * TENTA resolver dinamicamente, se falhar cai no flash.
+ * Usa gemini-2.5-flash como padrão por ser rápido e eficiente.
  */
 function getGeminiModel() {
     // Legacy support or sync calls can't use async resolution easily without top-level await or refactor.
@@ -18,7 +18,7 @@ function getGeminiModel() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) throw new Error("API Key missing");
     const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
 // Cache do modelo resolvido para evitar múltiplos fetches
